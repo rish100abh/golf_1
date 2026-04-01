@@ -1,0 +1,300 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 BigInt      @id @default(autoincrement())
+  email              String      @unique @db.VarChar(255)
+  passwordHash       String      @map("password_hash") @db.VarChar(255)
+  name               String      @db.VarChar(255)
+  role               String      @default("user") @db.VarChar(50)
+  charityId          BigInt?     @map("charity_id")
+  charityPercentage  Int         @default(10) @map("charity_percentage")
+  subscriptionStatus String      @default("inactive") @map("subscription_status") @db.VarChar(50)
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  charity            Charity?    @relation(fields: [charityId], references: [id], onDelete: SetNull)
+  subscriptions      Subscription[]
+  scores             Score[]
+  drawResults        DrawResult[]
+  paymentTransactions PaymentTransaction[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@index([charityIdYes, you **can install Prisma**, and for your golf charity project it is a good choice if you want cleaner database access, migrations, and typed queries instead of writing long raw SQL everywhere.[web:157][web:160] Since you already have a PostgreSQL database structure in `server.js`, the best path is either to let Prisma manage the schema going forward or introspect your existing database first and then gradually replace raw `pg` queries.[web:161][web:165]
+
+## Install Prisma
+
+Run these commands in your backend project:
+
+```bash
+npm install prisma --save-dev
+npm install @prisma/client
+npx prisma init
+```
+
+That creates a `prisma/schema.prisma` file and expects your PostgreSQL connection string in `.env` as `DATABASE_URL`.[web:163][web:160]
+
+## If database already exists
+
+Because you already have tables or SQL setup logic, use Prisma introspection first:
+
+```bash
+npx prisma db pull
+npx prisma generate
+```
+
+`db pull` reads your current PostgreSQL schema and converts it into Prisma models, which is the recommended way to add Prisma to an existing project without manually rewriting every table first.[web:161][web:160] After that, Prisma Client is generated so your Express app can query the database with typed methods like `prisma.user.findMany()`.[web:157][web:160]
+
+## Recommended Prisma schema
+
+If you want Prisma to define the database for the golf charity app, this is a good `prisma/schema.prisma` for your project:
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 BigInt      @id @default(autoincrement())
+  email              String      @unique @db.VarChar(255)
+  password_hash      String      @db.VarChar(255)
+  name               String      @db.VarChar(255)
+  role               String      @default("user") @db.VarChar(50)
+  charity_id         BigInt?
+  charity_percentage Int         @default(10)
+  subscription_status String     @default("inactive") @db.VarChar(50)
+  created_at         DateTime    @default(now())
+  updated_at         DateTime    @updatedAt
+
+  charity            Charity?    @relation(fields: [charity_id], references: [id], onDelete: SetNull)
+  subscriptions      Subscription[]
+  scores             Score[]
+  draw_results       DrawResult[]
+  payment_transactions PaymentTransaction[]
+  password_reset_tokens PasswordResetToken[]
+
+  @@index([email])
+  @@index([role])
+  @@index([charity_id])
+}
+
+model Charity {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?
+  category    String?  @db.VarChar(100)
+  website     String?  @db.VarChar(255)
+  logo_url    String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  users       User[]
+}
+
+model Subscription {
+  id                     BigInt   @id @default(autoincrement())
+  user_id                BigInt
+  plan_type              String   @db.VarChar(50)
+  status                 String   @default("active") @db.VarChar(50)
+  stripe_customer_id     String?  @db.VarChar(255)
+  stripe_subscription_id String?  @db.VarChar(255)
+  start_date             DateTime @default(now())
+  end_date               DateTime?
+  amount                 Decimal  @db.Decimal(10, 2)
+  created_at             DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([status])
+  @@index([stripe_customer_id])
+  @@index([stripe_subscription_id])
+}
+
+model Score {
+  id          BigInt   @id @default(autoincrement())
+  user_id     BigInt
+  value       Int
+  date_played DateTime @db.Date
+  created_at  DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, date_played])
+  @@index([user_id])
+}
+
+model Draw {
+  id             BigInt   @id @default(autoincrement())
+  draw_date      DateTime @unique @db.Date
+  winning_numbers Int[]
+  prize_pool     Decimal  @db.Decimal(12, 2)
+  jackpot_amount Decimal  @db.Decimal(12, 2)
+  status         String   @default("completed") @db.VarChar(50)
+  created_at     DateTime @default(now())
+
+  results DrawResult[]
+}
+
+model DrawResult {
+  id            BigInt   @id @default(autoincrement())
+  draw_id       BigInt
+  user_id       BigInt
+  matched_count Int
+  prize_amount  Decimal  @default(0) @db.Decimal(12, 2)
+  verified      Boolean  @default(false)
+  proof_url     String?
+  created_at    DateTime @default(now())
+
+  draw Draw @relation(fields: [draw_id], references: [id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([draw_id, user_id])
+  @@index([draw_id])
+  @@index([user_id])
+  @@index([verified])
+}
+
+model PaymentTransaction {
+  id             BigInt   @id @default(autoincrement())
+  user_id        BigInt?
+  session_id     String?  @unique @db.VarChar(255)
+  amount         Decimal? @db.Decimal(10, 2)
+  currency       String?  @default("usd") @db.VarChar(10)
+  status         String?  @db.VarChar(50)
+  payment_status String?  @db.VarChar(50)
+  metadata       Json?
+  created_at     DateTime @default(now())
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([status])
+}
+
+model PasswordResetToken {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  token      String   @unique @db.VarChar(255)
+  expires_at DateTime
+  used       Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([token])
+  @@index([expires_at])
+}
+
+model LoginAttempt {
+  id           BigInt   @id @default(autoincrement())
+  identifier   String   @unique @db.VarChar(255)
+  attempts     Int      @default(1)
+  locked_until DateTime?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@index([identifier])
+}
+```
+
+This schema reflects the same kinds of relations and constraints you already need in PostgreSQL: users linked to charities, subscriptions linked to users, draw results linked to both users and draws, and unique lookup fields for auth and payment flows.[web:160][web:165]
+
+## Create migration
+
+If Prisma is going to manage the schema from now on, run:
+
+```bash
+npx prisma migrate dev --name init
+npx prisma generate
+```
+
+Prisma Migrate creates versioned SQL migrations and keeps your schema history in sync with the app, which is one of its main benefits compared with keeping all database creation logic only inside `server.js`.[web:165][web:159]
+
+## Prisma client setup
+
+Create `lib/prisma.js`:
+
+```javascript
+const { PrismaClient } = require('@prisma/client');
+
+const globalForPrisma = global;
+
+const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ['error', 'warn'],
+  });
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+module.exports = prisma;
+```
+
+Then in `server.js`:
+
+```javascript
+const prisma = require('./lib/prisma');
+```
+
+Using one shared Prisma client instance is the normal pattern in Node apps to avoid opening too many database connections during development.[web:157][web:160]
+
+## Example conversion
+
+Instead of raw SQL like:
+
+```javascript
+const result = await pool.query('SELECT * FROM users WHERE email = $1', [emailLower]);
+const user = result.rows;
+```
+
+You can write:
+
+```javascript
+const user = await prisma.user.findUnique({
+  where: { email: emailLower }
+});
+```
+
+And instead of insert SQL:
+
+```javascript
+const newUser = await prisma.user.create({
+  data: {
+    email: emailLower,
+    password_hash: passwordHash,
+    name,
+    charity_id: charity_id || null,
+    charity_percentage: charity_percentage || 10
+  }
+});
+```
+
+That makes your auth and CRUD code shorter and less error-prone while still using PostgreSQL underneath.[web:157][web:160]
+
+## Best choice for you
+
+Because you already started with `pg`, the safest setup is:
+- Keep `pg` temporarily.
+- Install Prisma.
+- Run `npx prisma db pull`.
+- Generate Prisma client.
+- Gradually move routes from raw SQL to Prisma one by one.[web:161][web:160]
+
+That migration path is usually easier than rewriting the full backend in one step, especially when the project already has working auth and table setup.[web:161]
+
+Do you want me to give you the **full Prisma-based database code plus updated `server.js` structure for your golf charity project**?

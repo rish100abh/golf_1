@@ -1,5 +1,18 @@
-const { PrismaClient } = require('@prisma/client');
+// backend/config/db.js - Serverless Prisma + Neon
+import { PrismaClient } from '@prisma/client';
+import { Pool } from '@neondatabase/serverless';
+import ws from 'ws';
 
-const prisma = new PrismaClient();
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+});
 
-module.exports = prisma;
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});
+
+export default prisma;

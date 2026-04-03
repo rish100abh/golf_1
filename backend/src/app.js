@@ -12,14 +12,28 @@ const { errorHandler } = require('./middlewares/error.middleware');
 
 const app = express();
 
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS blocked: " + origin));
+  },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
 }));
 
 app.use(express.json());
 app.use(cookieParser());
 
+// ROUTES
 app.get('/api', (req, res) => {
   res.json({ message: 'Golf Charity Platform API' });
 });
@@ -34,6 +48,7 @@ app.use('/api/charities', charityRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
 
+// ERROR HANDLER
 app.use(errorHandler);
 
 module.exports = app;

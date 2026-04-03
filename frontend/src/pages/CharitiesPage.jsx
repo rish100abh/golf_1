@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../utils/api";
 
-// FIX: correct import paths (no @)
+// UI components
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import {
@@ -13,6 +13,11 @@ import {
 } from "../components/ui/card";
 
 import { Search, Heart } from "lucide-react";
+
+// ✅ Stripe
+import { loadStripe } from "@stripe/stripe-js";
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const CharitiesPage = () => {
   const navigate = useNavigate();
@@ -25,26 +30,48 @@ const CharitiesPage = () => {
     fetchCharities();
   }, [search]);
 
-const fetchCharities = async () => {
-  try {
-    console.log('🔍 Fetching with search:', search);
-    
-    const params = search.trim().length > 0 ? { search } : {};
-    console.log('📤 Sending params:', params);
-    
-    const response = await api.get("/charities", { params });
-    console.log('📥 Full response:', response);
-    console.log('📥 Response.data:', response.data);
-    console.log('📥 Data length:', response.data?.length);
-    
-    setCharities(response.data || []);
-    console.log('✅ State updated with charities');
-  } catch (error) {
-    console.error("❌ Error details:", error.response?.status, error.response?.data, error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchCharities = async () => {
+    try {
+      const params = search.trim().length > 0 ? { search } : {};
+      const response = await api.get("/charities", { params });
+      setCharities(response.data || []);
+    } catch (error) {
+      console.error("Error fetching charities:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ Stripe Donate Function
+  const handleDonate = async (amount = 500) => {
+    try {
+      const stripe = await stripePromise;
+
+      const res = await fetch(
+        "http://localhost:5000/api/payment/create-checkout-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ amount }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!data.id) {
+        throw new Error("No session ID returned");
+      }
+
+      await stripe.redirectToCheckout({
+        sessionId: data.id,
+      });
+    } catch (error) {
+      console.error("Stripe error:", error);
+      alert("Payment failed. Try again.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,9 +80,7 @@ const fetchCharities = async () => {
         <div className="container mx-auto px-6 py-4 flex justify-between">
           <h1 className="text-2xl">Our Charities</h1>
 
-          <Button onClick={() => navigate("/")}>
-            Back
-          </Button>
+          <Button onClick={() => navigate("/")}>Back</Button>
         </div>
       </header>
 
@@ -93,9 +118,7 @@ const fetchCharities = async () => {
                 </CardHeader>
 
                 <CardContent>
-                  <p className="text-sm mb-2">
-                    {charity.category}
-                  </p>
+                  <p className="text-sm mb-2">{charity.category}</p>
 
                   <p className="text-sm text-muted-foreground mb-4">
                     {charity.description}
@@ -111,6 +134,32 @@ const fetchCharities = async () => {
                       Visit →
                     </a>
                   )}
+
+                  {/* ✅ Donate Buttons */}
+                  <div className="flex gap-2 mt-4">
+                    <Button
+                      onClick={() => handleDonate(100)}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      ₹100
+                    </Button>
+
+                    <Button
+                      onClick={() => handleDonate(500)}
+                      className="w-full"
+                    >
+                      ₹500
+                    </Button>
+
+                    <Button
+                      onClick={() => handleDonate(1000)}
+                      className="w-full"
+                      variant="secondary"
+                    >
+                      ₹1000
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))}

@@ -23,32 +23,34 @@ const LoginPage = () => {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  // 🔹 submit
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (loading) return; // prevent double click
-    setLoading(true);
+  if (loading) return;
+  setLoading(true);
 
-    try {
-      await login(formData.email, formData.password);
+  try {
+    await login({
+      email: formData.email,
+      password: formData.password,
+    });
 
-      toast.success('Welcome back!');
-      navigate('/dashboard', { replace: true });
+    toast.success('Welcome back!');
+    navigate('/dashboard', { replace: true });
 
-    } catch (error) {
-      const errorMsg =
-        formatApiErrorDetail(error?.response?.data?.detail) ||
-        error?.response?.data?.message ||
-        error.message ||
-        'Login failed';
+  } catch (error) {
+    const errorMsg =
+      formatApiErrorDetail(error?.response?.data?.detail) ||
+      error?.response?.data?.message ||
+      error.message ||
+      'Login failed';
 
-      toast.error(errorMsg);
+    toast.error(errorMsg);
 
-    } finally {
-      setLoading(false);
-    }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12">

@@ -45,6 +45,10 @@ const RegisterPage = () => {
     fetchCharities();
   }, []);
 
+  useEffect(() => {
+  console.log('Charities loaded:', charities.length);
+}, [charities]);
+
   // 🔹 handle change
   const handleChange = (e) => {
     const { id, value } = e.target;

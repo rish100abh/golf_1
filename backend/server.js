@@ -1079,16 +1079,21 @@ const pool = new Pool({
 pool.on('connect', () => console.log('✅ Database connected'));
 pool.on('error', (err) => console.error('❌ Database pool error:', err));
 
-const allowedOrigins = process.env.CORS_ORIGINS.split(',');
+const allowedOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',')
+  : [];
 
 app.use(cors({
   origin: function (origin, callback) {
-    console.log("Origin:", origin); // debug
+    console.log("Origin:", origin);
 
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+    // allow requests with no origin (like Postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     } else {
-      callback(new Error("CORS blocked: " + origin));
+      return callback(new Error("CORS blocked: " + origin));
     }
   },
   credentials: true,
